@@ -1,16 +1,14 @@
 package com.palmergames.bukkit.towny;
 
-import net.milkbowl.vault.economy.Economy;
-import net.milkbowl.vault.economy.EconomyResponse;
-
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
-import com.iConomy.iConomy;
-import com.iConomy.system.Account;
-import com.nijikokun.register.payment.Methods;
-import com.nijikokun.register.payment.Method.MethodAccount;
+import com.earth2me.essentials.register.payment.Method.MethodAccount;
+import com.earth2me.essentials.register.payment.Methods;
+
+import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.economy.EconomyResponse;
 
 /**
  * Economy handler to interface with Register, Vault or iConomy 5.01 directly.
@@ -29,7 +27,7 @@ public class TownyEconomyHandler {
 	private static String version = "";
 
 	public enum EcoType {
-		NONE, ICO5, REGISTER, VAULT
+		NONE, REGISTER, VAULT
 	}
 
 	public static void initialize(Towny plugin) {
@@ -83,22 +81,6 @@ public class TownyEconomyHandler {
 		Plugin economyProvider = null;
 
 		/*
-		 * Test for native iCo5 support
-		 */
-		economyProvider = plugin.getServer().getPluginManager().getPlugin("iConomy");
-
-		if (economyProvider != null) {
-			/*
-			 * Flag as using native iCo5 hooks
-			 */
-			if (economyProvider.getDescription().getVersion().matches("5.01")) {
-				setVersion(String.format("%s v%s", "iConomy", economyProvider.getDescription().getVersion()));
-				Type = EcoType.ICO5;
-				return true;
-			}
-		}
-
-		/*
 		 * Attempt to hook Register
 		 */
 		economyProvider = plugin.getServer().getPluginManager().getPlugin("Register");
@@ -144,10 +126,7 @@ public class TownyEconomyHandler {
 	private static Object getEconomyAccount(String accountName) {
 
 		switch (Type) {
-
-		case ICO5:
-			return iConomy.getAccount(accountName);
-
+		
 		case REGISTER:
 			if (!Methods.getMethod().hasAccount(accountName))
 				Methods.getMethod().createAccount(accountName);
@@ -169,10 +148,6 @@ public class TownyEconomyHandler {
 
 		try {
 			switch (Type) {
-
-			case ICO5:
-				iConomy.getAccount(accountName).remove();
-				break;
 
 			case REGISTER:
 				MethodAccount account = (MethodAccount) getEconomyAccount(accountName);
@@ -209,16 +184,10 @@ public class TownyEconomyHandler {
 
 		switch (Type) {
 
-		case ICO5:
-			Account icoAccount = (Account) getEconomyAccount(accountName);
-			if (icoAccount != null)
-				return icoAccount.getHoldings().balance();
-			break;
-
 		case REGISTER:
 			MethodAccount registerAccount = (MethodAccount) getEconomyAccount(accountName);
 			if (registerAccount != null)
-				return registerAccount.balance(world);
+				return registerAccount.balance();
 
 			break;
 
@@ -262,18 +231,10 @@ public class TownyEconomyHandler {
 
 		switch (Type) {
 
-		case ICO5:
-			Account icoAccount = (Account) getEconomyAccount(accountName);
-			if (icoAccount != null) {
-				icoAccount.getHoldings().subtract(amount);
-				return true;
-			}
-			break;
-
 		case REGISTER:
 			MethodAccount registerAccount = (MethodAccount) getEconomyAccount(accountName);
 			if (registerAccount != null)
-				return registerAccount.subtract(amount, world);
+				return registerAccount.subtract(amount);
 			break;
 
 		case VAULT:
@@ -302,18 +263,10 @@ public class TownyEconomyHandler {
 
 		switch (Type) {
 
-		case ICO5:
-			Account icoAccount = (Account) getEconomyAccount(accountName);
-			if (icoAccount != null) {
-				icoAccount.getHoldings().add(amount);
-				return true;
-			}
-			break;
-
 		case REGISTER:
 			MethodAccount registerAccount = (MethodAccount) getEconomyAccount(accountName);
 			if (registerAccount != null)
-				return registerAccount.add(amount, world);
+				return registerAccount.add(amount);
 			break;
 
 		case VAULT:
@@ -334,18 +287,10 @@ public class TownyEconomyHandler {
 
 		switch (Type) {
 
-		case ICO5:
-			Account icoAccount = (Account) getEconomyAccount(accountName);
-			if (icoAccount != null) {
-				icoAccount.getHoldings().set(amount);
-				return true;
-			}
-			break;
-
 		case REGISTER:
 			MethodAccount registerAccount = (MethodAccount) getEconomyAccount(accountName);
 			if (registerAccount != null)
-				return registerAccount.set(amount, world);
+				return registerAccount.set(amount);
 			break;
 
 		case VAULT:
@@ -372,10 +317,7 @@ public class TownyEconomyHandler {
 
 		try {
 			switch (Type) {
-
-			case ICO5:
-				return iConomy.format(balance);
-
+			
 			case REGISTER:
 				return Methods.getMethod().format(balance);
 

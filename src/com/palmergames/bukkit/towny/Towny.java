@@ -1,17 +1,54 @@
 package com.palmergames.bukkit.towny;
 
-import ca.xshade.bukkit.questioner.Questioner;
-import ca.xshade.questionmanager.Option;
-import ca.xshade.questionmanager.Question;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.bukkit.ChatColor;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
+
 import com.earth2me.essentials.Essentials;
-import com.nijiko.permissions.PermissionHandler;
 import com.palmergames.bukkit.metrics.Metrics;
-import com.palmergames.bukkit.towny.command.*;
+import com.palmergames.bukkit.towny.command.NationCommand;
+import com.palmergames.bukkit.towny.command.PlotCommand;
+import com.palmergames.bukkit.towny.command.ResidentCommand;
+import com.palmergames.bukkit.towny.command.TownCommand;
+import com.palmergames.bukkit.towny.command.TownyAdminCommand;
+import com.palmergames.bukkit.towny.command.TownyCommand;
+import com.palmergames.bukkit.towny.command.TownyWorldCommand;
 import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.exceptions.TownyException;
-import com.palmergames.bukkit.towny.listeners.*;
-import com.palmergames.bukkit.towny.object.*;
-import com.palmergames.bukkit.towny.permissions.*;
+import com.palmergames.bukkit.towny.listeners.TownyBlockListener;
+import com.palmergames.bukkit.towny.listeners.TownyBlockPhysicsListener;
+import com.palmergames.bukkit.towny.listeners.TownyCustomListener;
+import com.palmergames.bukkit.towny.listeners.TownyEntityListener;
+import com.palmergames.bukkit.towny.listeners.TownyEntityMonitorListener;
+import com.palmergames.bukkit.towny.listeners.TownyPlayerListener;
+import com.palmergames.bukkit.towny.listeners.TownyVehicleListener;
+import com.palmergames.bukkit.towny.listeners.TownyWeatherListener;
+import com.palmergames.bukkit.towny.listeners.TownyWorldListener;
+import com.palmergames.bukkit.towny.object.Coord;
+import com.palmergames.bukkit.towny.object.PlayerCache;
+import com.palmergames.bukkit.towny.object.Resident;
+import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.bukkit.towny.object.TownyUniverse;
+import com.palmergames.bukkit.towny.object.TownyWorld;
+import com.palmergames.bukkit.towny.object.WorldCoord;
+import com.palmergames.bukkit.towny.permissions.BukkitPermSource;
+import com.palmergames.bukkit.towny.permissions.GroupManagerSource;
+import com.palmergames.bukkit.towny.permissions.NullPermSource;
+import com.palmergames.bukkit.towny.permissions.PEXSource;
+import com.palmergames.bukkit.towny.permissions.TownyPerms;
+import com.palmergames.bukkit.towny.permissions.VaultPermSource;
 import com.palmergames.bukkit.towny.questioner.TownyQuestionTask;
 import com.palmergames.bukkit.towny.regen.TownyRegenAPI;
 import com.palmergames.bukkit.towny.utils.PlayerCacheUtil;
@@ -23,17 +60,10 @@ import com.palmergames.bukkit.util.BukkitTools;
 import com.palmergames.util.FileMgmt;
 import com.palmergames.util.JavaUtil;
 import com.palmergames.util.StringMgmt;
-import org.bukkit.ChatColor;
-import org.bukkit.World;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.IOException;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import ca.xshade.bukkit.questioner.Questioner;
+import ca.xshade.questionmanager.Option;
+import ca.xshade.questionmanager.Question;
 
 /**
  * Towny Plugin for Bukkit
@@ -47,8 +77,6 @@ import java.util.regex.Pattern;
 public class Towny extends JavaPlugin {
 
 	private String version = "2.0.0";
-
-	public static PermissionHandler permissionHandler;
 
 	private final TownyPlayerListener playerListener = new TownyPlayerListener(this);
 	private final TownyVehicleListener vehicleListener = new TownyVehicleListener(this);
@@ -76,13 +104,13 @@ public class Towny extends JavaPlugin {
 	public void onEnable() {
 
 		System.out.println("====================      Towny      ========================");
-		
+
 		/*
 		 * Register Metrics
 		 */
 		try {
-		    Metrics metrics = new Metrics(this);
-		    metrics.start();
+			Metrics metrics = new Metrics(this);
+			metrics.start();
 		} catch (IOException e) {
 			System.err.println("[Towny] Error setting up metrics");
 		}
@@ -160,7 +188,8 @@ public class Towny extends JavaPlugin {
 						TownyLogger.log.warning("[Towny Error] Failed get world data for: " + town.getName());
 					}
 				else
-					TownyLogger.log.warning("[Towny Error] No Homeblock - Failed to detect world for: " + town.getName());
+					TownyLogger.log
+							.warning("[Towny Error] No Homeblock - Failed to detect world for: " + town.getName());
 			}
 		}
 
@@ -189,7 +218,7 @@ public class Towny extends JavaPlugin {
 		TownyRegenAPI.cancelProtectionRegenTasks();
 
 		playerCache.clear();
-		
+
 		// Shut down our saving task.
 		TownyUniverse.getDataSource().cancelTask();
 
@@ -222,7 +251,8 @@ public class Towny extends JavaPlugin {
 
 			TownyLogger.log.warning("[Towny Warning] Unable to read CraftBukkit Version.");
 			TownyLogger.log.warning("[Towny Warning] Towny requires version " + bukkitVer + " or higher.");
-			TownyLogger.log.warning("[Towny Warning] Check your CraftBukkit version as we do not test on custom/old builds.");
+			TownyLogger.log
+					.warning("[Towny Warning] Check your CraftBukkit version as we do not test on custom/old builds.");
 
 		} else {
 
@@ -275,38 +305,26 @@ public class Towny extends JavaPlugin {
 					// permissions = (PermissionsEX)test;
 					getTownyUniverse().setPermissionSource(new PEXSource(this, test));
 					using.add(String.format("%s v%s", "PermissionsEX", test.getDescription().getVersion()));
-				} else {
-					test = getServer().getPluginManager().getPlugin("bPermissions");
-					if (test != null) {
-						// permissions = (Permissions)test;
-						getTownyUniverse().setPermissionSource(new bPermsSource(this, test));
-						using.add(String.format("%s v%s", "bPermissions", test.getDescription().getVersion()));
-					} else {
-						test = getServer().getPluginManager().getPlugin("Permissions");
-						if (test != null) {
-							// permissions = (Permissions)test;
-							getTownyUniverse().setPermissionSource(new Perms3Source(this, test));
-							using.add(String.format("%s v%s", "Permissions", test.getDescription().getVersion()));
-						} else {
-							// Try Vault
-							test = getServer().getPluginManager().getPlugin("Vault");
-							if (test != null) {
-								net.milkbowl.vault.chat.Chat chat = getServer().getServicesManager().load(net.milkbowl.vault.chat.Chat.class);
-								if (chat == null) {
-									// No Chat implementation
-									test = null;
-									// Fall back to BukkitPermissions below
-								} else {
-									getTownyUniverse().setPermissionSource(new VaultPermSource(this, chat));
-									using.add(String.format("%s v%s", "Vault", test.getDescription().getVersion()));
-								}
-							}
 
-							if (test == null) {
-								getTownyUniverse().setPermissionSource(new BukkitPermSource(this));
-								using.add("BukkitPermissions");
-							}
+				} else {
+					// Try Vault
+					test = getServer().getPluginManager().getPlugin("Vault");
+					if (test != null) {
+						net.milkbowl.vault.chat.Chat chat = getServer().getServicesManager()
+								.load(net.milkbowl.vault.chat.Chat.class);
+						if (chat == null) {
+							// No Chat implementation
+							test = null;
+							// Fall back to BukkitPermissions below
+						} else {
+							getTownyUniverse().setPermissionSource(new VaultPermSource(this, chat));
+							using.add(String.format("%s v%s", "Vault", test.getDescription().getVersion()));
 						}
+					}
+
+					if (test == null) {
+						getTownyUniverse().setPermissionSource(new BukkitPermSource(this));
+						using.add("BukkitPermissions");
 					}
 				}
 			}
@@ -320,7 +338,8 @@ public class Towny extends JavaPlugin {
 			if (TownyEconomyHandler.setupEconomy())
 				using.add(TownyEconomyHandler.getVersion());
 			else
-				TownyMessaging.sendErrorMsg("No compatible Economy plugins found. You need iConomy 5.01, or the vault/Register.jar with any of the supported eco systems.");
+				TownyMessaging.sendErrorMsg(
+						"No compatible Economy plugins found. You need iConomy 5.01, or the vault/Register.jar with any of the supported eco systems.");
 		}
 
 		test = getServer().getPluginManager().getPlugin("Essentials");
@@ -399,7 +418,7 @@ public class Towny extends JavaPlugin {
 			TownyMessaging.sendDebugMsg("Could not read ChangeLog.txt");
 		}
 		TownySettings.setLastRunVersion(getVersion());
-		
+
 		TownyUniverse.getDataSource().saveAll();
 		TownyUniverse.getDataSource().cleanup();
 	}
@@ -428,7 +447,8 @@ public class Towny extends JavaPlugin {
 	}
 
 	/**
-	 * @param error the error to set
+	 * @param error
+	 *            the error to set
 	 */
 	protected void setError(boolean error) {
 
@@ -483,9 +503,11 @@ public class Towny extends JavaPlugin {
 
 		try {
 			getTownyUniverse();
-			playerCache.put(player.getName().toLowerCase(), new PlayerCache(TownyUniverse.getDataSource().getWorld(player.getWorld().getName()), player));
+			playerCache.put(player.getName().toLowerCase(),
+					new PlayerCache(TownyUniverse.getDataSource().getWorld(player.getWorld().getName()), player));
 		} catch (NotRegisteredException e) {
-			TownyMessaging.sendErrorMsg(player, "Could not create permission cache for this world (" + player.getWorld().getName() + ".");
+			TownyMessaging.sendErrorMsg(player,
+					"Could not create permission cache for this world (" + player.getWorld().getName() + ".");
 		}
 
 	}
@@ -501,8 +523,7 @@ public class Towny extends JavaPlugin {
 	}
 
 	/**
-	 * Fetch the current players cache
-	 * Creates a new one, if one doesn't exist.
+	 * Fetch the current players cache Creates a new one, if one doesn't exist.
 	 * 
 	 * @param player
 	 * @return the current (or new) cache for this player.
@@ -663,7 +684,8 @@ public class Towny extends JavaPlugin {
 
 	public String getConfigPath() {
 
-		return getDataFolder().getPath() + FileMgmt.fileSeparator() + "settings" + FileMgmt.fileSeparator() + "config.yml";
+		return getDataFolder().getPath() + FileMgmt.fileSeparator() + "settings" + FileMgmt.fileSeparator()
+				+ "config.yml";
 	}
 
 	public Object getSetting(String root) {
@@ -700,93 +722,83 @@ public class Towny extends JavaPlugin {
 			throw new Exception(String.format(TownySettings.getLangString("msg_err_invalid_input"), " on/off."));
 	}
 
-	
 	/**
 	 * @return the playerListener
 	 */
 	public TownyPlayerListener getPlayerListener() {
-	
+
 		return playerListener;
 	}
 
-	
 	/**
 	 * @return the vehicleListener
 	 */
 	public TownyVehicleListener getVehicleListener() {
-	
+
 		return vehicleListener;
 	}
 
-	
 	/**
 	 * @return the physicsListener
 	 */
 	public TownyBlockPhysicsListener getPhysicsListener() {
-	
+
 		return physicsListener;
 	}
 
-	
 	/**
 	 * @return the entityListener
 	 */
 	public TownyEntityListener getEntityListener() {
-	
+
 		return entityListener;
 	}
 
-	
 	/**
 	 * @return the weatherListener
 	 */
 	public TownyWeatherListener getWeatherListener() {
-	
+
 		return weatherListener;
 	}
 
-	
 	/**
 	 * @return the entityMonitorListener
 	 */
 	public TownyEntityMonitorListener getEntityMonitorListener() {
-	
+
 		return entityMonitorListener;
 	}
 
-	
 	/**
 	 * @return the worldListener
 	 */
 	public TownyWorldListener getWorldListener() {
-	
+
 		return worldListener;
 	}
 
-	
 	/**
 	 * @return the townyWarBlockListener
 	 */
 	public TownyWarBlockListener getTownyWarBlockListener() {
-	
+
 		return townyWarBlockListener;
 	}
 
-	
 	/**
 	 * @return the townyWarCustomListener
 	 */
 	public TownyWarCustomListener getTownyWarCustomListener() {
-	
+
 		return townyWarCustomListener;
 	}
 
-	
 	/**
 	 * @return the townyWarEntityListener
 	 */
 	public TownyWarEntityListener getTownyWarEntityListener() {
-	
+
 		return townyWarEntityListener;
 	}
 }
